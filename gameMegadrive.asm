@@ -5,36 +5,30 @@
 Main:
 
 	; Set autoincrement to 2 bytes
-	move.w #$8F02,vdp_control_port
+	SetVDPRegister vdp_register_autoincrement,2
 	
-	; Set background colour to palette 0, colour 8
-	move.w #$8708,vdp_control_port
+	jsr InitialisePalettes
 	
-	; ******************
-	; Load the Palettes
-	; ******************
-	lea Level1Palette,a0	; Palette source address in ROM to a0
-	move.l #$0,d0		; Palette slot ID to d0
-	jsr LoadPalette
+	; Set background colour to palette 0, colour 3
+	SetVDPRegister vdp_register_backgroud_colour,$05
 	
-	; *****************
-	; Load map tiles
-	; *****************
-	lea Level1Tiles,a0		; Tileset source address (ROM) to a0
-	move.l #Level1TilesVRAM,d0		; VRAM destination address to d0
-	move.l #Level1TilesSizeT,d1		; Number of tiles in the tileset
+	lea Stickman,a0		; ROM address of the tiles for Stickman
+	move.l #StickmanVRAM,d0		; move the address in VRAM to d0
+	move.l #StickmanSizeT,d1		; move number of tiles to d1
 	jsr LoadTiles
 	
-	; ***********
-	; Load map
-	; ***********
-	lea Level1Map,a0		; Map data to a0
-	move.w #Level1MapSizeW,d0		; Size (words) to d0
-	move.l #$18,d1		; Y offset to d1
-	move.w #Level1TilesTileID,d2		; First tile ID to d2
-	move.l #$0,d3		; Palette ID to d0
-	jsr LoadMapPlaneA
+	lea SpriteDescriptions,a0		; load the address of the sprite tables into a0
+	move.l #$2,d0		; move the number of sprites into d0
+	jsr LoadSpriteTables;
 	
+	move.w #$80,x_position		; the x pos
+	move.w #$81,y_position		; the y pos	
+	
+	move.l #StickmanSpriteID,d0		; set the sprite ID to stickman
+	move.w x_position,d1
+	jsr SetSpritePosX
+	move.w y_position,d1
+	jsr SetSpritePosY
 	
 	; *****************
 	; Main Game Loop
@@ -44,35 +38,34 @@ GameLoop:
 	; ***********************
 	; Read controller input
 	; ***********************
-	; jsr ReadController1		; Read controller 1 state, result in d0
+	jsr ReadController1		; writes the word of controller data to d0
 	
-	; move.l #$1,d6		; Default sprite move speed
+	move.l #$1,d1		; set original sprite speed
 	
-	; btst #controller_button_a,d0		; Check A button
-	; bne .NoA		; Branch if button off
-	; move.l #$2,d6		; Double sprite move speed
-	; .NoA:
+	btst #controller_button_a,d0		; Check if a button pressed
+	bne .AButtonNotPressed
+	move.l #$2,d1		; Double sprite speed
+	.AButtonNotPressed:		; else do nothing
 	
-	; btst #controller_button_right,d0		; Check right button
-	; bne .NoRight		; Branch if button off
-	; add.w d6,d4		; Increment sprite X position by move speed
-	; .NoRight:
-	
-	; btst #controller_button_left,d0		; Check left button
-	; bne .NoLeft		; Branch if button off
-	; sub.w d6,d4		; Decrement sprite X position by move speed
-	; .NoLeft:
-	
-	; btst #controller_button_down,d0		; Check down button
-	; bne .NoDown		; Branch if button off
-	; add.w d6,d5		; Increment sprite Y position by move speed
-	; .NoDown:
-	
-	; btst #controller_button_up,d0		; Check up button
-	; bne .NoUp		; Branch if button off
-	; sub.w d6,d5		; Decrement sprite Y position by move speed
-	; .NoUp:
-	
+	btst #controller_button_up,d0		; Check if up button pressed
+	bne	.UpButtonNotPressed
+	sub.w d1,y_position		; subtract the speed from the Y position
+	.UpButtonNotPressed:
+
+	btst #controller_button_down,d0		; Check if the down button is pressed
+	bne .DownButtonNotPressed
+	add.w d1,y_position		; add the speed to the Y position
+	.DownButtonNotPressed:
+
+	btst #controller_button_left,d0		; Check if the left button is pressed
+	bne .LeftButtonNotPressed		
+	sub.w d1,x_position		; subtract the speed from the X position
+	.LeftButtonNotPressed:
+
+	btst #controller_button_right,d0		; Check if the right button is pressed
+	bne .RightButtonNotPressed		
+	add.w d1,x_position		; add the speed to the X position
+	.RightButtonNotPressed:
 	
 	; ******************************
 	; Update sprites during vblank
@@ -80,15 +73,22 @@ GameLoop:
 	
 	jsr WaitVBlankStart		; Wait for start of vblank
 	
+	move.l StickmanSpriteID,d0
+	
+	move.w x_position,d1
+	jsr SetSpritePosX
+	
+	move.w y_position,d1
+	jsr SetSpritePosY
 	
 	jsr WaitVBlankEnd		; Wait for end of vblank
 	
 	jmp GameLoop
-	
-	
-	bsr *
    
    ; ---------------------------------------------------
    ; choose the font here (includes all the address data)
    
    include assets\assetmap.asm
+   
+   
+__end		; Very last line, End of the ROM Address

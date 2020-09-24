@@ -1,7 +1,3 @@
-; Start of Main RAM to store these counters
-hblank_counter equ $00FF0000
-vblank_counter equ $00FF0004
-
 ; Get a word from the VDP control port to get the VDP status
 ; 0: Region mode: OFF=NTSC, ON=PAL
 ; 1: ON during a DMA operation
@@ -17,13 +13,13 @@ vblank_counter equ $00FF0004
 
 WaitVBlankStart:
 	move.w vdp_control_port,d0		; Move VDP status word to d0
-	andi.w #%00001000,d0		; AND with bit 4 (vblank), result in status register
+	andi.w #$8,d0		; AND with bit 4 (vblank), result in status register
 	bne WaitVBlankStart		; Branch if not equal (to zero) 
 	rts
 	
 WaitVBlankEnd:
 	move.w vdp_control_port,d0 		; Move VDP status word to d0
-	andi.w #%00001000,d0		; AND with bit 4 (vblank), result in status
+	andi.w #$8,d0		; AND with bit 4 (vblank), result in status
 	beq WaitVBlankEnd
 	rts
 	

@@ -1,13 +1,19 @@
+InitialisePalettes:
+	lea Palettes,a0		; move the address of the palette to a0
+	move.l #$0,d0		; move the palette ID to d0
+	jsr LoadPalette		; Load the palette
+
 LoadPalette:
 	; a0 --- Address in ROM of the palette set
 	; d0 (l) --- ID of the specific palette in the set
 	
 	mulu.w #SizePalette,d0		; the index of the palette multiplied by the size of the palette to get the offset from the palette address
-	swap d0		; move the offset to the upper word
-	add.l #vdp_write_palettes,d0		; Add CRAM write command to the offset
-	move.l d0,vdp_control_port		; Write to the CRAM at the address + offset calculated
+	add.l #palette_cram_destination,d0		; Add the palette writing address to the offset (palette index * palette size)
+	move.l #cram_write,d1
 	
-	move.l #(SizePalette/SizeLong),d0		; Size of palette
+	jsr SendVDPCommandWithAddress;
+	
+	move.l #(SizePalette/SizeLong),d0		; Size of palette  (in longs)
 	.PaletteCopy:
 	move.l (a0)+,vdp_data_port		; Move longword to CRAM
 	dbra d0,.PaletteCopy

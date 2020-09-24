@@ -78,7 +78,7 @@
 	dc.b "J               "									; I/O support
 	dc.l $00000000											; Start address of ROM
 	dc.l __end												; End address of ROM
-	dc.l $00FF0000											; Start address of RAM
+	dc.l UserRAM										; Start address of RAM
 	dc.l $00FFFFFF											; End address of RAM
 	dc.l $00000000											; SRAM enabled
 	dc.l $00000000											; Unused
@@ -103,14 +103,14 @@ Initialise:		; Entry point address set in the ROM header
 	move.l #$00000000,d0	; Place 0 into d0, ready to copy to each longword of RAM
 	move.l #$00000000,a0	; Starting from address $0, clearing backwards
 	move.l #$00003FFF,d1	; Clearing 64k's worth of longwords (minus 1, for the loop)
-	.ClearRAM: 
+.ClearRAM: 
 	move.l d0,-(a0)		; Decrement the address by 1 longword, before moving the zero from d0 to it 
 	dbra d1,.ClearRAM 		; Decrement d0, repeat until d1 = 0
 	
 	
 	; Write TMSS Signiture
 	move.b hardware_info,d0 	; Move Megadrive hardware version to d0
-	andi.b #$0F,d0		; The version is stored in last four bits, so mask it
+	andi.b #%00001111,d0		; The version is stored in last four bits, so mask it
 	beq .Skip		; If the version is 0 then we don't need to write the TMSS signiture 
 	move.l #'SEGA',tmss_location	; If the version is 1 then we write the TMSS
 
@@ -118,29 +118,29 @@ Initialise:		; Entry point address set in the ROM header
 	
 	
 	; Initialise the Z80
-	move.w #$0100,busreq_port 	; Request access to the Z80 bus, by writing $0100 into the BUSREQ port
-	move.w #$0100,reset_port		; Hold the Z80 in a reset state, by writing $0100 into the RESET port
+	move.w #$0100,z80_busreq_port 	; Request access to the Z80 bus, by writing $0100 into the BUSREQ port
+	move.w #$0100,z80_reset_port		; Hold the Z80 in a reset state, by writing $0100 into the RESET port
 	
 	.Wait:
-	btst #$0,busreq_port		; Test bit 0 of A11100 to see if the 68k has been given access to the Z80 bus yet
+	btst #$0,z80_bus_grant		; Test bit 0 of A11100 to see if the 68k has been given access to the Z80 bus yet
 	bne .Wait		; If we don't yet have control, continue waiting
 	
 	lea Z80Data,a0		; Load address of data into a0
 	move.l #z80_ram_address,a1	; Copying Z80 RAM address to a1
 	move.l #$29,d0		; 42 bytes of init data (minus 1 for the loop)
-	.CopyZ80Data:
+.CopyZ80Data:
 	move.b (a0)+,(a1)+		; Copy data, and increment the source/destination addresses
 	dbra d0,.CopyZ80Data
 	
-	move.w #$0000,busreq_port		; Release control of bus
-	move.w #$0000,reset_port		; Release reset state
+	move.w #$0000,z80_busreq_port		; Release control of bus
+	move.w #$0000,z80_reset_port		; Release reset state
 
 	
 	; Initialise the PSG
 	lea PSGData,a0		; Load address of PSG data into a0
 	move.l #$03,d0			; 4 bytes of data (minus 1 for loop)
-	.CopyPSGData:
-	move.b (a0)+,$00C00011 	; Copy data to PSG RAM
+.CopyPSGData:
+	move.b (a0)+,psg_control_port	; Copy data to PSG RAM
 	dbra d0,.CopyPSGData
 	
 	
@@ -149,7 +149,7 @@ Initialise:		; Entry point address set in the ROM header
 	move.l #$17,d0		; 24 registers to write (minus 1 for loop)
 	move.l #$00008000,d1		; 'Set register 0' command (and clear the rest of d1 ready)
 	
-	.CopyVDPRegisters:
+.CopyVDPRegisters:
 	move.b (a0)+,d1		; Move a byte of the register value to d1
 	move.w d1,vdp_control_port		; Write comand and value to VDP control port
 	add.w #$0100,d1		;Increment register #
@@ -191,30 +191,30 @@ Initialise:		; Entry point address set in the ROM header
 	jmp Main
 	
 VDPRegisters:
-   dc.b $14 ; 0: Horiz. interrupt on, display on
-   dc.b $74 ; 1: Vert. interrupt on, display on, screen blank off, DMA on, V28 mode (40 cells vertically), Genesis mode on
-   dc.b $30 ; 2: Pattern table for Scroll Plane A at $C000 (bits 3-5)
-   dc.b $40 ; 3: Pattern table for Window Plane at $10000 (bits 1-5)
-   dc.b $05 ; 4: Pattern table for Scroll Plane B at $A000 (bits 0-2)
-   dc.b $70 ; 5: Sprite table at $E000 (bits 0-6)
-   dc.b $00 ; 6: Unused
-   dc.b $00 ; 7: Background colour - bits 0-3 = colour, bits 4-5 = palette
-   dc.b $00 ; 8: Unused
-   dc.b $00 ; 9: Unused
-   dc.b $00 ; 10: Frequency of Horiz. interrupt in Rasters (number of lines travelled by the beam)
-   dc.b $08 ; 11: External interrupts on, V/H scrolling on
-   dc.b $81 ; 12: Shadows and highlights off, interlace off, H40 mode (40 cells horizontally)
-   dc.b $34 ; 13: Horiz. scroll table at $D000 (bits 0-5)
-   dc.b $00 ; 14: Unused
-   dc.b $00 ; 15: Autoincrement off
-   dc.b $01 ; 16: Vert. scroll 32, Horiz. scroll 64
-   dc.b $00 ; 17: Window Plane X pos 0 left (pos in bits 0-4, left/right in bit 7)
-   dc.b $00 ; 18: Window Plane Y pos 0 up (pos in bits 0-4, up/down in bit 7)
-   dc.b $00 ; 19: DMA length lo byte
-   dc.b $00 ; 20: DMA length hi byte
-   dc.b $00 ; 21: DMA source address lo byte
-   dc.b $00 ; 22: DMA source address mid byte
-   dc.b $00 ; 23: DMA source address hi byte, memory-to-VRAM mode (bits 6-7)
+VDPReg0:  dc.b $14   ; 0: Horiz. interrupt on, display on
+VDPReg1:   dc.b $74  ; 1: Vert. interrupt on, display on, screen blank off, DMA on, V28 mode (40 cells vertically), Genesis mode on
+VDPReg2:   dc.b $30  ; 2: Pattern table for Scroll Plane A at $C000 (bits 3-5 of register becomes bits 13-15 of the vram address)
+VDPReg3:   dc.b $40  ; 3: Pattern table for Window Plane at $10000 (bits of register add 10 zero's = $10000)
+VDPReg4:   dc.b $05  ; 4: Pattern table for Scroll Plane B at $A000 (bits 0-2 of the register value add 13 zeros)
+VDPReg5:   dc.b $70  ; 5: Sprite table at $E000 (bits 0-6 of register value plus 6 zeros)
+VDPReg6:   dc.b $00  ; 6: Unused
+VDPReg7:   dc.b $00  ; 7: Background colour - bits 0-3 = colour, bits 4-5 = palette
+VDPReg8:   dc.b $00  ; 8: Unused
+VDPReg9:   dc.b $00  ; 9: Unused
+VDPRegA:   dc.b $00  ; 10: Frequency of Horiz. interrupt in Rasters (number of lines travelled by the beam)
+VDPRegB:   dc.b $08  ; 11: External interrupts on, V/H scrolling on
+VDPRegC:   dc.b $81  ; 12: Shadows and highlights off, interlace off, H40 mode (40 cells horizontally)
+VDPRegD:   dc.b $34  ; 13: Horiz. scroll table at $D000 (bits 0-5 of register value plus 9 zeros)
+VDPRegE:   dc.b $00  ; 14: Unused
+VDPRegF:   dc.b $00  ; 15: Autoincrement off
+VDPReg10:   dc.b $01 ; 16: Vert. scroll 32, Horiz. scroll 64
+VDPReg11:   dc.b $00 ; 17: Window Plane X pos 0 left (pos in bits 0-4, left/right in bit 7)
+VDPReg12:   dc.b $00 ; 18: Window Plane Y pos 0 up (pos in bits 0-4, up/down in bit 7)
+VDPReg13:   dc.b $00 ; 19: DMA length lo byte
+VDPReg14:   dc.b $00 ; 20: DMA length hi byte
+VDPReg15:   dc.b $00 ; 21: DMA source address lo byte
+VDPReg16:   dc.b $00 ; 22: DMA source address mid byte
+VDPReg17:   dc.b $00 ; 23: DMA source address hi byte, memory-to-VRAM mode (bits 6-7)
 	
 PSGData:
    dc.w $9fbf,$dfff
@@ -249,4 +249,3 @@ VBlankInterrupt:
 Exception:
 	rte		; return from the Exception
 	
-__end		; Very last line, End of the ROM Address

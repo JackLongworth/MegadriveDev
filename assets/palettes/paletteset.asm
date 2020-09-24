@@ -1,20 +1,20 @@
 Palettes:
-	dc.w $0000
-	dc.w $0010
-	dc.w $0021
-	dc.w $0132
-	dc.w $0364
-	dc.w $0385
-	dc.w $0087
-	dc.w $0888
-	dc.w $0396
-	dc.w $05a8
-	dc.w $04ca
-	dc.w $00dd
-	dc.w $09dc
-	dc.w $0dfc
-	dc.w $0cfd
-	dc.w $0fff
+	dc.w $0000  ; 0
+	dc.w $034E  ; 1
+	dc.w $0EEE  ; 2
+	dc.w $0AAA  ; 3
+	dc.w $0455  ; 4
+	dc.w $0333  ; 5
+	dc.w $0087  ; 6
+	dc.w $0888  ; 7
+	dc.w $0396  ; 8
+	dc.w $05a8  ; 9
+	dc.w $04ca  ; A
+	dc.w $00dd  ; B
+	dc.w $09dc  ; C
+	dc.w $0dfc  ; D	
+	dc.w $0cfd  ; E
+	dc.w $0fff  ; F
 
 	dc.w $0000
 	dc.w $0001
